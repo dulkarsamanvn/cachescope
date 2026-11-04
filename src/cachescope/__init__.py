@@ -1,0 +1,1 @@
+"""cachescope: find which Python functions repeat slow work."""
