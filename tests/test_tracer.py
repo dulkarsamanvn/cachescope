@@ -310,3 +310,19 @@ def test_advice_explains_unhashable_arguments_instead_of_suggesting():
 def test_advice_is_empty_when_a_cache_would_never_help():
     record = {"unhashable": 0, "sequence": list(range(10))}
     assert cache_advice(record) == ""
+
+def test_decision_is_made_once_per_function():
+    tracer = Tracer(root=HERE)
+    asked = []
+    original = tracer._is_user_code
+
+    def counting(code):
+        asked.append(code.co_name)
+        return original(code)
+
+    tracer._is_user_code = counting
+    tracer.start()
+    for _ in range(50):
+        square(2)
+    tracer.stop()
+    assert asked.count("square") == 1

@@ -78,6 +78,8 @@ class Tracer:
         self.records = {}
         # running function id -> (its record, its input label, start time)
         self._open = {}
+        # code object -> True/False: is this the user's code? Decided once, then remembered.
+        self._decisions = {}
 
     def start(self):
         sys.setprofile(self._hook)
@@ -111,7 +113,11 @@ class Tracer:
 
     def _on_call(self, frame):
         code = frame.f_code
-        if not self._is_user_code(code):
+        decision = self._decisions.get(code)
+        if decision is None:
+            decision = self._is_user_code(code)
+            self._decisions[code] = decision
+        if not decision:
             return
 
         count = code.co_argcount + code.co_kwonlyargcount
