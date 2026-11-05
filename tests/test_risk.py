@@ -61,3 +61,58 @@ def test_source_of_missing_file_is_none():
 
 def test_unreadable_source_is_reported_not_called_safe():
     assert risks_of_function("no_such_file.py", 1) == ["its source code could not be read"]
+
+
+def test_import_aliases_and_imported_functions_are_resolved():
+    for source in (
+        "def f():\n    import time as t\n    return t.time()\n",
+        "def f():\n    from time import time\n    return time()\n",
+    ):
+        assert "reads the clock" in find_risks(source)
+    assert "uses randomness" in find_risks("def f():\n    from random import randint as r\n    return r(1, 6)\n")
+
+
+def test_mutations_of_arguments_and_their_aliases_are_found():
+    for body in (
+        "items.append(1)", "items[0] = 1", "items.value = 1",
+        "del items[0]", "alias = items\n    alias.clear()",
+    ):
+        assert "mutates an argument" in find_risks("def f(items):\n    " + body + "\n")
+    assert find_risks("def f():\n    items = []\n    items.append(1)\n    return len(items)\n") == []
+
+
+def test_unused_helper_body_and_root_definition_expressions_are_ignored():
+    source = "@print('defined')\ndef f(value=time.time()):\n    def unused():\n        print('unused')\n    return value\n"
+    assert find_risks(source) == []
+    assert "prints something (a cached call would not print again)" in find_risks(
+        "def f():\n    def helper():\n        print('called')\n    helper()\n"
+    )
+
+
+def test_parameters_shadow_imported_modules():
+    assert find_risks("import random\ndef f(random):\n    return random.randint(1, 6)\n") == []
+
+
+def test_module_imports_globals_and_called_helpers_are_examined(tmp_path):
+    path = tmp_path / "risks.py"
+    path.write_text(
+        "import time as clock\nSETTINGS = {}\n"
+        "def helper():\n    print('effect')\n"
+        "def f(key):\n    helper()\n    return SETTINGS.get(key, clock.time())\n"
+    )
+    risks = risks_of_function(str(path), 5)
+    assert "reads the clock" in risks
+    assert "reads variables outside itself" in risks
+    assert "prints something (a cached call would not print again)" in risks
+
+
+def test_global_helper_resolution_respects_lexical_scopes(tmp_path):
+    path = tmp_path / "scopes.py"
+    path.write_text(
+        "import time as clock\n"
+        "def helper():\n    return clock.time()\n"
+        "def f(clock):\n    return helper()\n"
+        "def g(helper):\n    return helper()\n"
+    )
+    assert "reads the clock" in risks_of_function(str(path), 4)
+    assert risks_of_function(str(path), 6) == []

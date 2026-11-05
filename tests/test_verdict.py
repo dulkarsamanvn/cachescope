@@ -7,10 +7,13 @@ def make_record(calls=100, unknown=0, unique=10, seconds=1.0, varied=False):
     The defaults describe a clearly good case: 100 calls, only 10 different
     inputs, 1 second in total (so 10 ms per call), stable results.
     """
+    inputs = {i: 1 for i in range(unique)}
+    if inputs:
+        inputs[0] += max(0, calls - unknown - unique)
     return {
         "calls": calls,
         "unknown": unknown,
-        "inputs": {i: 1 for i in range(unique)},
+        "inputs": inputs,
         "results": {},
         "time": seconds,
         "varied": varied,

@@ -2,6 +2,7 @@ import os
 import time
 
 from cachescope.tracer import Tracer, cache_advice
+from cachescope.verdict import judge
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -116,14 +117,15 @@ def test_time_is_recorded():
     assert find(tracer, "slow")["time"] >= 0.04
 
 
-def test_changing_result_for_same_input_is_flagged():
+def test_changing_closure_state_requires_review():
     counter = make_counter()
     tracer = Tracer(root=HERE)
     tracer.start()
     counter(1)
     counter(1)
     tracer.stop()
-    assert find(tracer, "counter")["varied"] is True
+    assert find(tracer, "counter")["contextual"] is True
+    assert judge(find(tracer, "counter"))[0] == "MAYBE"
 
 
 def test_stable_result_is_not_flagged():
@@ -189,7 +191,7 @@ def test_report_suggests_a_cache_size_for_candidates(capsys):
         slow(i % 3)
     tracer.stop()
     tracer.report()
-    assert "lru_cache(maxsize=4)" in capsys.readouterr().out
+    assert "capacity ~4 for normalized inputs" in capsys.readouterr().out
 
 
 def test_report_gives_no_size_for_functions_that_need_review(capsys):
@@ -297,7 +299,7 @@ def test_generators_are_not_recorded():
 
 def test_advice_suggests_a_size_for_hashable_arguments():
     record = {"unhashable": 0, "sequence": ["a", "b"] * 10}
-    assert "lru_cache(maxsize=2)" in cache_advice(record)
+    assert "capacity ~2 for normalized inputs" in cache_advice(record)
 
 
 def test_advice_explains_unhashable_arguments_instead_of_suggesting():

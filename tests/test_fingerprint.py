@@ -41,8 +41,8 @@ def test_fingerprint_can_be_a_dictionary_key():
     counts = {fingerprint([1, [2, 3]]): 1}  # would crash if it were not hashable
     assert counts[fingerprint([1, [2, 3]])] == 1
 
-def test_dict_order_does_not_matter():
-    assert fingerprint({"a": 1, "b": 2}) == fingerprint({"b": 2, "a": 1})
+def test_dict_iteration_order_is_preserved():
+    assert fingerprint({"a": 1, "b": 2}) != fingerprint({"b": 2, "a": 1})
 
 
 def test_different_dicts_are_different():

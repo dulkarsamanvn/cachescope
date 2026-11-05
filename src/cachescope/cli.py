@@ -7,16 +7,34 @@ import traceback
 
 from .tracer import Tracer
 
+USAGE = "usage: cachescope run [--root DIRECTORY] script.py [script arguments]"
+
 
 def main(argv=None):
     args = sys.argv[1:] if argv is None else list(argv)
 
-    if len(args) < 2 or args[0] != "run":
-        print("usage: cachescope run script.py [script arguments]", file=sys.stderr)
+    if args in (["--help"], ["-h"], ["run", "--help"]):
+        print(USAGE)
+        return 0
+    if not args or args[0] != "run":
+        print(USAGE, file=sys.stderr)
         return 2
 
-    script = args[1]
-    script_args = args[2:]
+    remaining, root = args[1:], None
+    if remaining[:1] == ["--root"]:
+        if len(remaining) < 3:
+            print(USAGE, file=sys.stderr)
+            return 2
+        root, remaining = remaining[1], remaining[2:]
+        if not os.path.isdir(root):
+            print(f"cachescope: cannot find root directory: {root}", file=sys.stderr)
+            return 2
+    if remaining[:1] == ["--"]:
+        remaining = remaining[1:]
+    if not remaining:
+        print(USAGE, file=sys.stderr)
+        return 2
+    script, script_args = remaining[0], remaining[1:]
 
     if not os.path.isfile(script):
         print(f"cachescope: cannot find script: {script}", file=sys.stderr)
@@ -25,24 +43,31 @@ def main(argv=None):
     script_path = os.path.abspath(script)
     script_folder = os.path.dirname(script_path)
 
-    # Make the script believe it was started normally.
-    sys.argv = [script, *script_args]
-    sys.path.insert(0, script_folder)
-
-    tracer = Tracer(root=script_folder)
+    tracer = Tracer(root=root or script_folder)
     exit_code = 0
+    previous_argv, previous_path = sys.argv, sys.path
+    previous_path_values = previous_path[:]
 
-    tracer.start()
     try:
+        # Make the script believe it was started normally, then restore the host.
+        sys.argv = [script, *script_args]
+        sys.path = [script_folder, *previous_path_values]
+        tracer.start()
         runpy.run_path(script_path, run_name="__main__")
     except SystemExit as exc:  # the script called exit() or sys.exit()
         code = exc.code
         exit_code = code if isinstance(code, int) else (0 if code is None else 1)
+        if code is not None and not isinstance(code, int):
+            print(code, file=sys.stderr)
     except Exception:  # the script crashed: show the error, but still give the report
         traceback.print_exc()
         exit_code = 1
     finally:
-        tracer.stop()  # the camera must ALWAYS be switched off
+        try:
+            tracer.stop()
+        finally:
+            sys.argv, sys.path = previous_argv, previous_path
+            previous_path[:] = previous_path_values
 
     print()
     tracer.report()
