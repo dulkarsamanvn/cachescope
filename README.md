@@ -75,4 +75,5 @@ python -m twine check dist/*
 ```
 
 CI runs the suite on Python 3.9 through 3.14 on Linux and Windows, and checks
-the built wheel and source distribution.
+the built wheel and source distribution. The Linux Python 3.9 job uses Ubuntu
+22.04, which has a supported `setup-python` binary for that version.
