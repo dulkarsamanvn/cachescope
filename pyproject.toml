@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cachescope"
-version = "0.1.0.dev0"
+version = "0.1.0a1"
 description = "Find which Python functions repeat slow work, and how big a cache they need."
 readme = "README.md"
 requires-python = ">=3.9"

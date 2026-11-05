@@ -2,7 +2,13 @@
 
 Find which Python functions repeat slow work.
 
-Install from this checkout and run a script:
+Install the alpha release from PyPI:
+
+```console
+python -m pip install --pre cachescope
+```
+
+Or install from this checkout and run a script:
 
 ```console
 python -m pip install .
@@ -77,3 +83,6 @@ python -m twine check dist/*
 CI runs the suite on Python 3.9 through 3.14 on Linux and Windows, and checks
 the built wheel and source distribution. The Linux Python 3.9 job uses Ubuntu
 22.04, which has a supported `setup-python` binary for that version.
+
+Maintainers: see the [release guide](https://github.com/dulkarsamanvn/cachescope/blob/main/RELEASING.md)
+for the TestPyPI rehearsal and Trusted Publishing setup.
