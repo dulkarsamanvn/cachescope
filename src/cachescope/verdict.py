@@ -25,7 +25,7 @@ def summarize(record):
     elapsed = max(0.0, record["time"] - record.get("failed_time", 0.0))
     average = elapsed / max(calls, 1)
     wasted = record.get("repeat_time", repeats * average)
-    if record.get("recursive"):
+    if record.get("recursive") or record.get("concurrent") or record.get("kind"):
         wasted = 0.0
     return Summary(calls, unique, repeats, average, wasted / max(repeats, 1), wasted)
 
@@ -46,6 +46,9 @@ def judge(record, risks=()):
     if record.get("contextual"):
         return "MAYBE", "function instances or captured state require review; shared cache identity cannot be inferred"
 
+    if record.get("custom_inputs") or record.get("custom_results"):
+        return "MAYBE", "custom object identity and visible state were observed; cache-key equivalence requires review"
+
     if record["varied"]:
         return "UNSAFE", "gave different results for the same input"
 
@@ -58,11 +61,23 @@ def judge(record, risks=()):
     if record.get("recursive"):
         return "MAYBE", "recursive calls overlap; independent cache savings cannot be estimated"
 
+    if record.get("concurrent"):
+        return "MAYBE", "calls overlap across threads; a cache may still execute concurrent misses"
+
     if record.get("limited"):
         return "MAYBE", "observation limits were reached; the data is incomplete"
 
     if record.get("incomplete"):
         return "MAYBE", "tracing stopped before some calls completed"
+
+    if record.get("closed"):
+        return "MAYBE", "some executions were closed before completion"
+
+    if record.get("kind") == "coroutine":
+        return "MAYBE", "cache completed results with an async-aware strategy; coroutine objects cannot be reused"
+
+    if record.get("kind"):
+        return "MAYBE", "generator streams are consumable; caching materialized values requires review"
 
     if repeats == 0:
         if record.get("failed"):

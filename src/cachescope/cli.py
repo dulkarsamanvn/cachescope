@@ -7,7 +7,7 @@ import traceback
 
 from .tracer import Tracer
 
-USAGE = "usage: cachescope run [--root DIRECTORY] script.py [script arguments]"
+USAGE = "usage: cachescope run [--root DIRECTORY] [--threads] [--objects] script.py [script arguments]"
 
 
 def main(argv=None):
@@ -20,8 +20,15 @@ def main(argv=None):
         print(USAGE, file=sys.stderr)
         return 2
 
-    remaining, root = args[1:], None
-    if remaining[:1] == ["--root"]:
+    remaining, root, threads, objects = args[1:], None, False, False
+    while remaining and remaining[0] in ("--root", "--threads", "--objects"):
+        if remaining[0] in ("--threads", "--objects"):
+            if remaining[0] == "--threads":
+                threads = True
+            else:
+                objects = True
+            remaining = remaining[1:]
+            continue
         if len(remaining) < 3:
             print(USAGE, file=sys.stderr)
             return 2
@@ -43,7 +50,7 @@ def main(argv=None):
     script_path = os.path.abspath(script)
     script_folder = os.path.dirname(script_path)
 
-    tracer = Tracer(root=root or script_folder)
+    tracer = Tracer(root=root or script_folder, threads=threads, objects=objects)
     exit_code = 0
     previous_argv, previous_path = sys.argv, sys.path
     previous_path_values = previous_path[:]

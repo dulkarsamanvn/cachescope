@@ -124,3 +124,37 @@ def test_missing_root_and_help(tmp_path):
     help_result = run_cli("--help", cwd=tmp_path)
     assert help_result.returncode == 0
     assert "--root DIRECTORY" in help_result.stdout
+
+
+@pytest.mark.parametrize("options", [("--threads", "--root", "."), ("--root", ".", "--threads")])
+def test_worker_threads_option_and_root_in_either_order(tmp_path, options):
+    (tmp_path / "workers.py").write_text(
+        "import threading\n"
+        "def square(n):\n    return n * n\n"
+        "def work():\n    for _ in range(3):\n        square(2)\n"
+        "worker = threading.Thread(target=work)\nworker.start()\nworker.join()\n"
+    )
+    result = run_cli("run", *options, "workers.py", cwd=tmp_path)
+    assert result.returncode == 0, result.stderr
+    assert "3 calls, 1 unique, 2 repeats" in result.stdout
+
+
+def test_threads_option_after_script_is_forwarded(tmp_path):
+    (tmp_path / "app.py").write_text(SCRIPT)
+    result = run_cli("run", "app.py", "--threads", cwd=tmp_path)
+    assert result.returncode == 0
+    assert "args: ['--threads']" in result.stdout
+
+
+def test_objects_option_reports_method_inputs(tmp_path):
+    (tmp_path / "objects.py").write_text(
+        "class Customer:\n"
+        "    def __init__(self):\n        self.balance = 10\n"
+        "    def total(self, n):\n        return self.balance + n\n"
+        "customer = Customer()\ncustomer.total(2)\ncustomer.total(2)\n"
+    )
+    result = run_cli("run", "--objects", "objects.py", cwd=tmp_path)
+    assert result.returncode == 0, result.stderr
+    assert "[MAYBE] total" in result.stdout
+    assert "2 calls, 1 unique, 1 repeats" in result.stdout
+    assert "custom objects compared by identity" in result.stdout

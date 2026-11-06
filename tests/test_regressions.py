@@ -147,6 +147,31 @@ def test_a_real_none_return_is_still_a_success():
     assert judge(record)[0] == "CANDIDATE"
 
 
+def test_return_observation_failure_does_not_corrupt_active_counts(monkeypatch):
+    import cachescope.tracer as module
+
+    original = module.exit_instruction
+    failed = []
+
+    def unreliable(frame):
+        if frame.f_code is returns_none.__code__ and not failed:
+            failed.append(True)
+            raise RuntimeError("return observation failed")
+        return original(frame)
+
+    monkeypatch.setattr(module, "exit_instruction", unreliable)
+    with Tracer(root=HERE) as tracer:
+        assert returns_none(1) is None
+        assert returns_none(1) is None
+        assert sys.getprofile() is tracer._installed_hook
+    record = next(record for key, record in tracer.records.items() if key[1] == "returns_none")
+    assert record["calls"] == 2
+    assert record["successful"] == 1
+    assert record["active"] == 0
+    assert not record["recursive"]
+    assert tracer.observation_errors == 1
+
+
 def defaulted(value=1):
     time.sleep(0.002)
     return value

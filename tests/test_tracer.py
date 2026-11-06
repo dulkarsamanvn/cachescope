@@ -290,12 +290,15 @@ def test_double_star_arguments_are_part_of_the_input():
     assert len(find(tracer, "with_extras")["inputs"]) == 2
 
 
-def test_generators_are_not_recorded():
+def test_generator_resumes_are_one_logical_call():
     tracer = Tracer(root=HERE)
     tracer.start()
     list(count_up(4))
     tracer.stop()
-    assert find(tracer, "count_up") is None
+    record = find(tracer, "count_up")
+    assert record["calls"] == record["successful"] == 1
+    assert record["suspensions"] == 4
+    assert record["kind"] == "generator"
 
 def test_advice_suggests_a_size_for_hashable_arguments():
     record = {"unhashable": 0, "sequence": ["a", "b"] * 10}
